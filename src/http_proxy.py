@@ -126,12 +126,17 @@ if __name__ == "__main__":
     parser.add_argument("--target-url", required=True, help="Target backend (for server) or remote proxy (for client)")
     parser.add_argument("--key", required=True, help="AES-256 key (32 bytes)")
     parser.add_argument("--iv", required=True, help="AES IV (16 bytes)")
+    parser.add_argument("--logs-path", required=False, help="Path to save logs on server")
     args = parser.parse_args()
 
     key = args.key.encode("utf-8")
     iv = args.iv.encode("utf-8")
 
     if args.mode == "server":
+        if args.logs_path is not None:
+            logs_path = args.logs_path
+        else:
+            logs_path = 'server.log'
         logger = logging.getLogger("server_proxy")
         logger.setLevel(logging.DEBUG)
 
@@ -143,7 +148,7 @@ if __name__ == "__main__":
 
         # Rotating file handler
         file_handler = RotatingFileHandler(
-            "server.log", maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8"
+            logs_path, maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8"
         )
         file_handler.setLevel(logging.DEBUG)
         file_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
