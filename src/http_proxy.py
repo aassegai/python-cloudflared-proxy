@@ -4,6 +4,7 @@ import uvicorn
 import logging
 import argparse
 
+from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
@@ -19,8 +20,10 @@ def create_server_proxy(target_backend_url: str, key: bytes, iv: bytes) -> FastA
             method = request.method
             path = request.url.path
             query = request.url.query
-            headers = {k: v for k, v in request.headers.items()
-               if k.lower() not in ["host", "content-length", "transfer-encoding"]}
+            headers = {
+                k: v for k, v in request.headers.items()
+                if k.lower() not in ["host", "content-length", "transfer-encoding"]
+            }
             target_url = f"{target_backend_url}{path}"
             if query:
                 target_url += f"?{query}"
@@ -28,12 +31,11 @@ def create_server_proxy(target_backend_url: str, key: bytes, iv: bytes) -> FastA
             # decrypt JSON body if exists
             try:
                 data = await request.json()
-                timeout = data.pop('timeout') if 'timeout' in data.keys() else 60.0
+                timeout = data.pop('timeout', 60.0)
                 data['timeout'] = timeout
-                logger.DEBUG("using %f timeout", timeout)
+                logger.debug("Using timeout: %f", timeout)
                 decrypted = decrypt_json_values(data, key, iv)
-                logger.DEBUG(f"Decrypted data {decrypted}")
-
+                logger.debug(f"Decrypted data: {decrypted}")
             except Exception:
                 timeout = 60.0
                 decrypted = None
@@ -56,10 +58,11 @@ def create_server_proxy(target_backend_url: str, key: bytes, iv: bytes) -> FastA
                 return Response(content=resp.content, status_code=resp.status_code)
 
         except Exception as e:
-            logger.exception("Error: %s", e)
+            logger.exception("Error handling request: %s", e)
             return JSONResponse(content={"error": str(e)}, status_code=500)
 
-    app.add_api_route("/{path:path}", handle_request, methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])
+    app.add_api_route("/{path:path}", handle_request,
+                      methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])
     return app
 
 
@@ -72,8 +75,10 @@ def create_client_proxy(remote_url: str, key: bytes, iv: bytes) -> FastAPI:
             method = request.method
             path = request.url.path
             query = request.url.query
-            headers = {k: v for k, v in request.headers.items()
-               if k.lower() not in ["host", "content-length", "transfer-encoding"]}
+            headers = {
+                k: v for k, v in request.headers.items()
+                if k.lower() not in ["host", "content-length", "transfer-encoding"]
+            }
             target_url = f"{remote_url}{path}"
             if query:
                 target_url += f"?{query}"
@@ -81,9 +86,9 @@ def create_client_proxy(remote_url: str, key: bytes, iv: bytes) -> FastAPI:
             # encrypt outgoing JSON
             try:
                 data = await request.json()
-                timeout = data.pop('timeout') if 'timeout' in data.keys() else 60.0
+                timeout = data.pop('timeout', 60.0)
                 data['timeout'] = timeout
-                logger.DEBUG("using %f timeout", timeout)
+                logger.debug("Using timeout: %f", timeout)
                 encrypted = encrypt_json_values(data, key, iv)
             except Exception:
                 timeout = 60.0
@@ -107,10 +112,11 @@ def create_client_proxy(remote_url: str, key: bytes, iv: bytes) -> FastAPI:
                 return Response(content=resp.content, status_code=resp.status_code)
 
         except Exception as e:
-            logger.exception("Error: %s", e)
+            logger.exception("Error handling client request: %s", e)
             return JSONResponse(content={"error": str(e)}, status_code=500)
 
-    app.add_api_route("/{path:path}", handle_request, methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])
+    app.add_api_route("/{path:path}", handle_request,
+                      methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])
     return app
 
 if __name__ == "__main__":
@@ -122,14 +128,37 @@ if __name__ == "__main__":
     parser.add_argument("--iv", required=True, help="AES IV (16 bytes)")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s")
-
     key = args.key.encode("utf-8")
     iv = args.iv.encode("utf-8")
 
     if args.mode == "server":
+        logger = logging.getLogger("server_proxy")
+        logger.setLevel(logging.DEBUG)
+
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+        console_handler.setFormatter(console_formatter)
+
+        # Rotating file handler
+        file_handler = RotatingFileHandler(
+            "server.log", maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8"
+        )
+        file_handler.setLevel(logging.DEBUG)
+        file_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+        file_handler.setFormatter(file_formatter)
+
+        # Attach handlers
+        logger.addHandler(console_handler)
+        logger.addHandler(file_handler)
+
         app = create_server_proxy(args.target_url.rstrip("/"), key, iv)
+
     else:
+        # Client logs only to console
+        logging.basicConfig(level=logging.DEBUG,
+                            format="%(asctime)s [%(levelname)s] %(message)s")
         app = create_client_proxy(args.target_url.rstrip("/"), key, iv)
 
     uvicorn.run(app, host="0.0.0.0", port=args.listen_port)
