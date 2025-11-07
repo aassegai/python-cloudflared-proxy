@@ -4,4 +4,4 @@ jwt:
   access_token_expire_minutes: 30  # Set to 0 for no expiration
 
 users:
-  db_path: "users.json"
+  db_path: "src/config/users.json"
