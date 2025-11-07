@@ -1,3 +1,4 @@
+import base64
 import typing as tp
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad

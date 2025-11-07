@@ -1,5 +1,4 @@
 import httpx
-import base64
 import uvicorn
 import logging
 import argparse
