@@ -20,7 +20,7 @@ from config import load_config, load_users
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-config = load_config('./config/config.yaml')
+config = load_config('./config.yaml')
 ALGORITHM = config["jwt"]["algorithm"]
 USERS_DB_PATH = config["users"]["db_path"]
 ACCESS_TOKEN_EXPIRE_MINUTES = config["jwt"]["access_token_expire_minutes"]
