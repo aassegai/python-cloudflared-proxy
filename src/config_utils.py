@@ -19,7 +19,7 @@ def load_users(db_path: str):
         return json.load(f)
 
 # Create a new user (hash password and save to DB)
-def create_user(username: str, password: str, db_path: str = None):
+def create_user(username: str, password: str, db_path: str = None, config_path: str = None):
     from passlib.context import CryptContext
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -27,7 +27,7 @@ def create_user(username: str, password: str, db_path: str = None):
         raise ValueError("Username and password are required")
 
     if db_path is None:
-        config = load_config()
+        config = load_config(config_path)
         db_path = config["users"]["db_path"]
 
     users = load_users(db_path)
