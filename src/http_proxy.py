@@ -15,8 +15,8 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
-from src.crypto_utils import encrypt_json_values, decrypt_json_values
-from src.config_utils import load_config, load_users
+from crypto_utils import encrypt_json_values, decrypt_json_values
+from config_utils import load_config, load_users
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
