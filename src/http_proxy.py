@@ -15,7 +15,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 
 from crypto_utils import encrypt_json_values, decrypt_json_values
-from config.config import load_config, load_users
+from config import load_config, load_users
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
