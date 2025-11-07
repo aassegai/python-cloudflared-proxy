@@ -14,23 +14,19 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
-from crypto_utils import encrypt_value, decrypt_value, encrypt_json_values, decrypt_json_values
-
-# OAuth2 and JWT configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+from crypto_utils import encrypt_json_values, decrypt_json_values
+from config.config import load_config, load_users
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# Fake user database (replace with real DB in production)
-fake_users_db = {
-    "admin": {
-        "username": "admin",
-        "hashed_password": pwd_context.hash("secret"),
-    }
-}
+config = load_config('./config/config.yaml')
+ALGORITHM = config["jwt"]["algorithm"]
+USERS_DB_PATH = config["users"]["db_path"]
+ACCESS_TOKEN_EXPIRE_MINUTES = config["jwt"]["access_token_expire_minutes"]
+SECRET_KEY = config["jwt"]["secret_key"]
+
+users_db = load_users(USERS_DB_PATH)
 
 class User(BaseModel):
     username: str
@@ -63,11 +59,13 @@ def authenticate_user(fake_db, username: str, password: str):
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
+    if ACCESS_TOKEN_EXPIRE_MINUTES and ACCESS_TOKEN_EXPIRE_MINUTES > 0:
+        if expires_delta:
+            expire = datetime.now() + expires_delta
+        else:
+            expire = datetime.now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        to_encode.update({"exp": expire})
+    # If ACCESS_TOKEN_EXPIRE_MINUTES is 0 or None, no expiration
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
@@ -85,7 +83,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         token_data = TokenData(username=username)
     except jwt.PyJWTError:
         raise credentials_exception
-    user = get_user(fake_users_db, username=token_data.username)
+    user = get_user(users_db, username=token_data.username)
     if user is None:
         raise credentials_exception
     return user
@@ -97,7 +95,7 @@ def create_server_proxy(target_backend_url: str, key: bytes, iv: bytes) -> FastA
 
     @app.post("/token", response_model=Token)
     async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-        user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+        user = authenticate_user(users_db, form_data.username, form_data.password)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -167,7 +165,7 @@ def create_client_proxy(remote_url: str, key: bytes, iv: bytes) -> FastAPI:
 
     @app.post("/token", response_model=Token)
     async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-        user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+        user = authenticate_user(users_db, form_data.username, form_data.password)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

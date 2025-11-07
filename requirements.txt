@@ -4,3 +4,6 @@ pycryptodome
 PyJwt
 openai
 python-multipart
+passlib
+pydantic
+PyYAML
