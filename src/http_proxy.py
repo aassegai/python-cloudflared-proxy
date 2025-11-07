@@ -3,6 +3,7 @@ import uvicorn
 import logging
 import argparse
 import os
+import json
 import jwt
 from datetime import datetime, timedelta
 from typing import Optional
@@ -14,8 +15,8 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
-from crypto_utils import encrypt_json_values, decrypt_json_values
-from config_utils import load_config, load_users
+from src.crypto_utils import encrypt_json_values, decrypt_json_values
+from src.config_utils import load_config, load_users
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -41,6 +42,29 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Optional[str] = None
 
+# Create a new user (hash password and save to DB)
+def create_user(username: str, password: str, db_path: str = None):    
+    if not username or not password:
+        raise ValueError("Username and password are required")
+
+    if db_path is None:
+        db_path = config["users"]["db_path"]
+
+    users = load_users(db_path)
+    if username in users:
+        raise ValueError(f"User '{username}' already exists")
+
+    hashed_password = pwd_context.hash(password)
+    users[username] = {
+        "username": username,
+        "hashed_password": hashed_password
+    }
+
+    with open(db_path, 'w') as f:
+        json.dump(users, f, indent=4)
+
+    return f"User '{username}' created successfully"
+
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
@@ -49,8 +73,8 @@ def get_user(db, username: str):
         user_dict = db[username]
         return UserInDB(**user_dict)
 
-def authenticate_user(fake_db, username: str, password: str):
-    user = get_user(fake_db, username)
+def authenticate_user(db, username: str, password: str):
+    user = get_user(db, username)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
