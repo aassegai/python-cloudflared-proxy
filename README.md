@@ -22,9 +22,9 @@ A FastAPI proxy that encrypts traffic before sending it through a Cloudflare tun
 ./cloudflared tunnel --url http://localhost:8081
 ```
 
-4. Generate login/password through `create_user` function in 
+4. Generate login/password through `create_user` function, example in 
 ```bash
-src/config.py
+add_user.ipynb
 ``` 
 
 5. Run the client proxy (update target-url), key and iv must match server side proxy:
