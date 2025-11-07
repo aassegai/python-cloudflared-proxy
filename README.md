@@ -13,24 +13,21 @@ A FastAPI proxy that encrypts traffic before sending it through a Cloudflare tun
 2. Run the server proxy, change your key an iv to your 32 and 16 symbol passwords:
 
 ```bash
-./run_scripts/run_server_proxy.sh
+sh ./run_scripts/run_server_proxy.sh
 ```
 
 3. Start a Cloudflare tunnel:
 
 ```bash
-./cloudflared tunnel --url http://localhost:8081
+./cloudflared tunnel --url http://localhost:{port}
 ```
 
-4. Generate login/password through `create_user` function, example in 
-```bash
-add_user.ipynb
-``` 
+4. Generate login/password through `create_user` function on server side, example in `add_user.ipynb`. 
 
 5. Run the client proxy (update target-url), key and iv must match server side proxy:
 
 ```bash
-./run_scripts/run_client_proxy.sh
+sh ./run_scripts/run_client_proxy.sh
 ```
 
 6. Get access token with login.password pair via `/token` endpoint.
